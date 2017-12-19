@@ -17,8 +17,8 @@ import subprocess
 # b = b armed, a disabled
 
 mtime = getmtime(__file__)
-OPTIONS = ["s","m","a","b","d"]
-CHANS = ["s","a","m","d"]
+OPTIONS = ["m","a","b","d"] # no stereo atm
+CHANS = ["m","a","m","d"]
 RECORDING = False
 
 LED_OFF = [0,0,0]
@@ -44,22 +44,39 @@ def draw():
 
 blinkt.set_brightness(0.04)
 
+def recordnow():
+    print(CHANS)
+    jacklist = []
+    for chan, val in enumerate([val for val in CHANS for _ in (0, 1)]):
+        switcher = {
+                "a": chan % 2 == 1,
+                "b": chan % 2 == 0,
+                "d": False,
+                "m": True,
+                "s": True
+                }
+        shallrecord = switcher.get(val, False)
+        if shallrecord:
+            jacklist.append("-p")
+            jacklist.append("system:capture_{}".format(chan+1))
+    if len(jacklist) > 0:
+        cmd = ["jack_capture", "-c", str(len(jacklist)//2)] + jacklist
+
 @buttonshim.on_press([1,2,3,4])
 def arm (button, pressed):
-    invnum = range(4,-1,-1)[button]
-    CHANS[invnum] = OPTIONS[(OPTIONS.index(CHANS[invnum])+1)%4]
+    invnum = range(len(OPTIONS)-1,-1,-1)[button]
+    CHANS[invnum] = OPTIONS[(OPTIONS.index(CHANS[invnum])+1)%len(OPTIONS)]
 
 @buttonshim.on_press(0)
 def record (button, pressed):
     global RECORDING
     RECORDING = not RECORDING
     if RECORDING:
-        print(CHANS)
-        subprocess.run(["jack_capture", "-l"])
+         recordnow()
 
 while True:
     if getmtime(__file__) > mtime:
       print("Restarting program! -- file changed")
-      os.execv(sys.executable, ['python'] + sys.argv)
+      os.execv(sys.executable, ['python3'] + sys.argv)
     draw()
     time.sleep(0.05)
